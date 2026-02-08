@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  Admin
+  Participant
+}
+
+enum Group {
+  L1
+  L2
+  S1
+  S2
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  role      Role     @default(Participant)
+  teamId    String?
+  team      Team?    @relation(fields: [teamId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Team {
+  id          String       @id @default(uuid())
+  team_name   String       @unique
+  track_id    String?      // Optional: Logic/Student, specific track name
+  group       Group        // L1, L2, S1, S2
+  members     User[]
+  scores      Score?
+  submissions Submission[]
+  createdAt   DateTime     @default(now())
+}
+
+model Score {
+  id           String   @id @default(uuid())
+  teamId       String   @unique
+  team         Team     @relation(fields: [teamId], references: [id])
+  phase1_score Float    @default(0)
+  phase2_score Float    @default(0)
+  phase3_score Float    @default(0)
+  phase4_score Float    @default(0)
+  total_score  Float    @default(0)
+  updatedAt    DateTime @updatedAt
+}
+
+model Submission {
+  id            String   @id @default(uuid())
+  teamId        String
+  team          Team     @relation(fields: [teamId], references: [id])
+  round         Int
+  imageUrl      String?  // URL from Supabase Storage
+  numericAnswer Float?   // Optional if just image
+  submittedAt   DateTime @default(now())
+}
