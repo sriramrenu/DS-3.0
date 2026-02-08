@@ -66,19 +66,19 @@ export default function AdminSubmissions() {
         <AdminSidebar />
         <main className="flex-1 p-8">
           <div className="max-w-6xl mx-auto space-y-6">
-            <h1 className="text-3xl font-headline font-bold">Submissions</h1>
+            <h1 className="text-3xl font-headline font-bold text-green-500">Submissions</h1>
 
-            {loading && <p className="text-gray-400">Loading submissions...</p>}
+            {loading && <p className="text-green-400/60">Loading submissions...</p>}
             {error && <p className="text-red-400">Error: {error}</p>}
             {!loading && !error && submissions.length === 0 && (
-              <p className="text-gray-400">No submissions yet. Waiting for participants to submit their work.</p>
+              <p className="text-green-400/60 font-medium">No submissions yet. Waiting for participants to submit their work.</p>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {submissions.map((sub, i) => {
                 const teamName = sub.team?.team_name || 'Unknown Team';
                 const trackId = sub.team?.track_id;
-                const trackName = tracks.find(tr => tr.id === trackId)?.track_name || 'General';
+                const trackName = sub.team?.group || 'General'; // Using group as per recent branding
                 const time = new Date(sub.submittedAt).toLocaleTimeString();
 
                 return (
@@ -93,20 +93,20 @@ export default function AdminSubmissions() {
                           data-ai-hint="team submission"
                         />
                       ) : (
-                        <div className="flex items-center justify-center h-full text-muted-foreground">No Image</div>
+                        <div className="flex items-center justify-center h-full text-green-400/40">No Image</div>
                       )}
                     </div>
                     <CardContent className="p-4 space-y-3">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="font-bold text-lg text-white">{teamName}</p>
-                          <p className="text-xs text-muted-foreground">Submitted at {time}</p>
+                          <p className="font-bold text-lg text-green-400">{teamName}</p>
+                          <p className="text-xs text-green-400/60">Submitted at {time}</p>
                         </div>
-                        <Badge>{trackName}</Badge>
+                        <Badge className="bg-green-500/10 text-green-400 border-green-500/20">{trackName}</Badge>
                       </div>
-                      <div className="p-2 rounded bg-muted flex items-center justify-between">
-                        <span className="text-sm text-white uppercase font-bold text-[10px] tracking-widest">Answer</span>
-                        <span className="font-mono font-bold text-white">{sub.numericAnswer || 'N/A'}</span>
+                      <div className="p-2 rounded bg-green-500/5 border border-green-500/10 flex items-center justify-between">
+                        <span className="text-sm text-green-500 uppercase font-bold text-[10px] tracking-widest">Answer</span>
+                        <span className="font-mono font-bold text-green-400">{sub.numericAnswer || 'N/A'}</span>
                       </div>
                     </CardContent>
                   </MagicCard>

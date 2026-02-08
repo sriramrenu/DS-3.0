@@ -60,6 +60,16 @@
   body {
     @apply text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    cursor: none !important;
+  }
+
+  a,
+  button,
+  input,
+  textarea,
+  select,
+  .cursor-pointer {
+    cursor: none !important;
   }
 
   h1,
@@ -172,9 +182,11 @@ nextjs-portal {
   display: none !important;
 }
 
-/* Solid Green Placeholder */
+/* Global Green Placeholder Replaced by local themes */
+/* 
 input::placeholder,
 textarea::placeholder {
   color: #4ade80;
   opacity: 1;
 }
+*/

@@ -100,3 +100,64 @@ export const updateScore = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Failed to update score', details: error });
     }
 };
+
+// Update multiple team scores at once
+export const updateBatchScores = async (req: Request, res: Response) => {
+    const { updates } = req.body; // Array of { teamId, p1, p2, p3, p4 }
+
+    if (!updates || !Array.isArray(updates)) {
+        return res.status(400).json({ error: 'Missing or invalid updates array' });
+    }
+
+    try {
+        const results = await Promise.all(updates.map(async (u: any) => {
+            const { teamId, p1, p2, p3, p4 } = u;
+            const total = (p1 || 0) + (p2 || 0) + (p3 || 0) + (p4 || 0);
+
+            return prisma.score.upsert({
+                where: { teamId },
+                update: {
+                    phase1_score: p1,
+                    phase2_score: p2,
+                    phase3_score: p3,
+                    phase4_score: p4,
+                    total_score: total
+                },
+                create: {
+                    teamId,
+                    phase1_score: p1,
+                    phase2_score: p2,
+                    phase3_score: p3,
+                    phase4_score: p4,
+                    total_score: total
+                }
+            });
+        }));
+
+        res.json({ success: true, count: results.length });
+    } catch (error) {
+        console.error('Batch update failed:', error);
+        res.status(500).json({ error: 'Failed to update batch scores', details: error });
+    }
+};
+
+// Get all members (participants)
+export const getMembers = async (req: Request, res: Response) => {
+    try {
+        console.log('Fetching members...');
+        const members = await prisma.user.findMany({
+            where: { role: 'Participant' },
+            include: {
+                team: true
+            },
+            orderBy: {
+                username: 'asc'
+            }
+        });
+        console.log(`Found ${members.length} members.`);
+        res.json(members);
+    } catch (error) {
+        console.error('Error fetching members:', error);
+        res.status(500).json({ error: 'Failed to fetch members', details: error });
+    }
+};

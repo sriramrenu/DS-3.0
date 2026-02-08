@@ -12,6 +12,8 @@ import { MagicCard } from '@/components/ui/magic-card';
 
 export default function AdminMembers() {
   const [session, setSession] = useState<{ id: string; role: Role; username: string } | null>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -28,7 +30,25 @@ export default function AdminMembers() {
     setSession(parsed);
   }, [router]);
 
-  if (!session) return null;
+  useEffect(() => {
+    if (session) {
+      const token = localStorage.getItem('token');
+      fetch('http://localhost:3001/api/admin/members', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          setMembers(data);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error('Failed to fetch members:', err);
+          setLoading(false);
+        });
+    }
+  }, [session]);
+
+  if (!session || loading) return null;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -37,7 +57,7 @@ export default function AdminMembers() {
         <AdminSidebar />
         <main className="flex-1 p-8">
           <div className="max-w-6xl mx-auto space-y-6">
-            <h1 className="text-3xl font-headline font-bold">Members & Teams</h1>
+            <h1 className="text-3xl font-headline font-bold text-blue-500">Members & Teams</h1>
 
             <MagicCard className="bg-black/40 backdrop-blur-md rounded-lg shadow-sm border-white/10 overflow-hidden text-white">
               <Table>
@@ -45,28 +65,25 @@ export default function AdminMembers() {
                   <TableRow className="bg-muted/50">
                     <TableHead className="font-bold text-white">Username</TableHead>
                     <TableHead className="font-bold text-white">Team Name</TableHead>
-                    <TableHead className="font-bold text-white">Track</TableHead>
+                    <TableHead className="font-bold text-white uppercase tracking-wider">Troops</TableHead>
                     <TableHead className="font-bold text-white">Role</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => {
-                    const team = teams.find(t => t.id === user.team_id);
-                    const track = tracks.find(tr => tr.id === team?.track_id);
+                  {members.map((member) => {
+                    const troop = member.team?.group || 'Unassigned';
                     return (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium text-white">{user.username}</TableCell>
-                        <TableCell className="text-white">{team?.team_name || 'N/A'}</TableCell>
+                      <TableRow key={member.id}>
+                        <TableCell className="font-medium text-blue-400">{member.username}</TableCell>
+                        <TableCell className="text-blue-400 font-medium">{member.team?.team_name || 'N/A'}</TableCell>
                         <TableCell>
-                          {track ? (
-                            <Badge variant="outline" className="border-primary text-primary">
-                              {track.track_name}
-                            </Badge>
-                          ) : '-'}
+                          <Badge variant="outline" className="border-blue-400 text-blue-400 font-bold">
+                            {troop}
+                          </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>
-                            {user.role}
+                          <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">
+                            {member.role}
                           </Badge>
                         </TableCell>
                       </TableRow>

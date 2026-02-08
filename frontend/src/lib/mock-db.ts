@@ -32,6 +32,8 @@ export interface Submission {
 
 export interface Score {
   team_id: string;
+  team_name: string;
+  group?: string;
   phase1_score: number;
   phase2_score: number;
   phase3_score: number;
@@ -72,6 +74,7 @@ export const users: User[] = [
 // Initial scores for all teams
 export const initialScores: Score[] = teams.map((team) => ({
   team_id: team.id,
+  team_name: team.team_name,
   phase1_score: 0,
   phase2_score: 0,
   phase3_score: 0,

@@ -179,7 +179,6 @@ export function TargetCursor({
 
         const enterHandler = (e: MouseEvent) => {
             const directTarget = e.target as HTMLElement;
-            // Traverse up to find matching target
             let current: HTMLElement | null = directTarget;
             let target: HTMLElement | null = null;
 
@@ -194,9 +193,11 @@ export function TargetCursor({
             if (!target || !cursorRef.current || !cornersRef.current) return;
             if (activeTarget === target) return;
 
+            // CLEANUP PREVIOUS TARGET BEFORE STARTING NEW ONE
             if (activeTarget) {
-                // @ts-ignore
-                cleanupTarget(activeTarget);
+                if (currentLeaveHandler) {
+                    currentLeaveHandler();
+                }
             }
 
             if (resumeTimeout) {
@@ -207,7 +208,6 @@ export function TargetCursor({
             activeTarget = target;
             const corners = Array.from(cornersRef.current);
             gsap.killTweensOf(corners);
-
             gsap.killTweensOf(cursorRef.current, 'rotation');
             spinTl.current?.pause();
             gsap.set(cursorRef.current, { rotation: 0 });
@@ -225,23 +225,16 @@ export function TargetCursor({
             ];
 
             isActiveRef.current = true;
-            if (tickerFnRef.current) gsap.ticker.add(tickerFnRef.current);
+
+            // Ensure any stale ticker is removed before adding new one
+            if (tickerFnRef.current) gsap.ticker.remove(tickerFnRef.current);
+            gsap.ticker.add(tickerFn);
 
             gsap.to(activeStrengthRef, {
                 current: 1,
-                // @ts-ignore
                 duration: hoverDuration,
-                ease: 'power2.out'
-            });
-
-            corners.forEach((corner, i) => {
-                if (!targetCornerPositionsRef.current) return;
-                gsap.to(corner, {
-                    x: targetCornerPositionsRef.current[i].x - cursorX,
-                    y: targetCornerPositionsRef.current[i].y - cursorY,
-                    duration: 0.2,
-                    ease: 'power2.out'
-                });
+                ease: 'power2.out',
+                overwrite: true
             });
 
             const leaveHandler = () => {
@@ -249,8 +242,14 @@ export function TargetCursor({
 
                 isActiveRef.current = false;
                 targetCornerPositionsRef.current = null;
-                gsap.set(activeStrengthRef, { current: 0, overwrite: true });
+                gsap.killTweensOf(activeStrengthRef);
+                gsap.set(activeStrengthRef, { current: 0 });
+
+                if (activeTarget) {
+                    activeTarget.removeEventListener('mouseleave', leaveHandler);
+                }
                 activeTarget = null;
+                currentLeaveHandler = null;
 
                 if (cornersRef.current) {
                     const corners = Array.from(cornersRef.current);
@@ -262,18 +261,13 @@ export function TargetCursor({
                         { x: cornerSize * 0.5, y: cornerSize * 0.5 },
                         { x: -cornerSize * 1.5, y: cornerSize * 0.5 }
                     ];
-                    const tl = gsap.timeline();
-                    corners.forEach((corner, index) => {
-                        tl.to(
-                            corner,
-                            {
-                                x: positions[index].x,
-                                y: positions[index].y,
-                                duration: 0.3,
-                                ease: 'power3.out'
-                            },
-                            0
-                        );
+                    gsap.to(corners, {
+                        x: (i) => positions[i].x,
+                        y: (i) => positions[i].y,
+                        duration: 0.3,
+                        ease: 'power3.out',
+                        stagger: 0,
+                        overwrite: true
                     });
                 }
 
@@ -296,9 +290,6 @@ export function TargetCursor({
                     }
                     resumeTimeout = null;
                 }, 50);
-
-                // @ts-ignore
-                cleanupTarget(target);
             };
 
             currentLeaveHandler = leaveHandler;

@@ -5,7 +5,7 @@ import { login } from '../controllers/auth.controller';
 import { seedDatabase } from '../controllers/seed.controller';
 import { getDashboardData, submitWork } from '../controllers/dashboard.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
-import { getSubmissions, updateScore, getScores } from '../controllers/admin.controller';
+import { getSubmissions, updateScore, getScores, getMembers, updateBatchScores } from '../controllers/admin.controller';
 import { getDashboardStats } from '../controllers/stats.controller';
 
 const router = Router();
@@ -23,6 +23,8 @@ router.post('/submit', authenticateToken, upload.single('file'), submitWork);
 router.get('/admin/stats', authenticateToken, authorize(['Admin']), getDashboardStats);
 router.get('/admin/submissions', authenticateToken, authorize(['Admin']), getSubmissions);
 router.get('/admin/scores', authenticateToken, authorize(['Admin']), getScores);
+router.get('/admin/members', authenticateToken, authorize(['Admin']), getMembers);
+router.post('/admin/scores/bulk', authenticateToken, authorize(['Admin']), updateBatchScores);
 router.post('/admin/score', authenticateToken, authorize(['Admin']), updateScore);
 
 export default router;

@@ -39,6 +39,7 @@ export default function AdminLeaderboard() {
         const mapped: Score[] = data.map((t: any) => ({
           team_id: t.id,
           team_name: t.team_name,
+          group: t.group,
           phase1_score: t.scores?.phase1_score || 0,
           phase2_score: t.scores?.phase2_score || 0,
           phase3_score: t.scores?.phase3_score || 0,
@@ -63,22 +64,21 @@ export default function AdminLeaderboard() {
         <main className="flex-1 p-8">
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-accent text-accent-foreground shadow-lg">
+              <div className="p-3 rounded-2xl bg-green-500/10 text-green-400 border border-green-500/20 shadow-[0_0_20px_rgba(34,197,94,0.2)]">
                 <Trophy className="w-8 h-8" />
               </div>
               <div>
-                <h1 className="text-3xl font-headline font-bold">Leaderboard</h1>
-                <p className="text-muted-foreground">Global rankings based on cumulative phase scores across all tracks.</p>
+                <h1 className="text-3xl font-headline font-bold text-green-500">Leaderboard</h1>
+                <p className="text-green-400/60 font-medium">Global rankings based on cumulative phase scores across all tracks.</p>
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-6">
               {sortedScores.slice(0, 3).map((score, i) => {
-                const team = teams.find(t => t.id === score.team_id);
                 const colors = [
-                  'border-green-400 bg-green-900/20',
-                  'border-green-600 bg-green-900/10',
-                  'border-green-800 bg-green-900/5'
+                  'border-green-400/50 bg-green-900/20 shadow-[0_0_30px_-10px_rgba(34,197,94,0.5)]',
+                  'border-green-600/30 bg-green-900/10',
+                  'border-green-800/20 bg-green-900/5'
                 ];
                 const medalColors = [
                   'text-green-400',
@@ -86,13 +86,13 @@ export default function AdminLeaderboard() {
                   'text-green-600'
                 ];
                 return (
-                  <div key={score.team_id} className={cn("p-6 rounded-2xl border-2 flex flex-col items-center gap-3 text-center shadow-sm", colors[i])}>
+                  <div key={score.team_id} className={cn("p-6 rounded-2xl border-2 flex flex-col items-center gap-3 text-center transition-all hover:scale-105", colors[i])}>
                     <Medal className={cn("w-12 h-12", medalColors[i])} />
                     <div>
-                      <p className="text-xs uppercase font-black tracking-widest text-muted-foreground">Rank {i + 1}</p>
-                      <p className="font-bold text-lg leading-tight text-white">{team?.team_name}</p>
+                      <p className="text-xs uppercase font-black tracking-widest text-green-400/40">Rank {i + 1}</p>
+                      <p className="font-bold text-lg leading-tight text-green-100">{score.team_name}</p>
                     </div>
-                    <p className="text-2xl font-black text-white">{score.total_score}</p>
+                    <p className="text-2xl font-black text-green-400">{score.total_score}</p>
                   </div>
                 );
               })}
@@ -101,33 +101,35 @@ export default function AdminLeaderboard() {
             <MagicCard className="bg-black/40 backdrop-blur-md rounded-2xl shadow-xl border-white/10 overflow-hidden text-white">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-primary hover:bg-primary border-none">
-                    <TableHead className="font-bold pl-8 text-black">Rank</TableHead>
-                    <TableHead className="font-bold text-black">Team Name</TableHead>
-                    <TableHead className="font-bold text-black">Track</TableHead>
-                    <TableHead className="font-bold text-right pr-8 text-black">Total Points</TableHead>
+                  <TableRow className="bg-green-500 hover:bg-green-500 border-none">
+                    <TableHead className="font-bold pl-8 text-white uppercase tracking-wider text-xs">Rank</TableHead>
+                    <TableHead className="font-bold text-white uppercase tracking-wider text-xs">Team Name</TableHead>
+                    <TableHead className="font-bold text-white uppercase tracking-wider text-xs">Troops</TableHead>
+                    <TableHead className="font-bold text-right pr-8 text-white uppercase tracking-wider text-xs">Total Points</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedScores.map((score, index) => {
-                    const team = teams.find(t => t.id === score.team_id);
-                    const track = tracks.find(tr => tr.id === team?.track_id);
-                    const medalColors = [ // Redefine medalColors for this scope
+                    const medalColors = [
                       'text-green-400',
                       'text-green-500',
                       'text-green-600'
                     ];
                     return (
-                      <TableRow key={score.team_id} className={cn(index < 3 && "bg-muted/30")}>
-                        <TableCell className="font-medium pl-8 text-white">{index + 1}</TableCell>
-                        <TableCell className="text-white">
+                      <TableRow key={score.team_id} className={cn(index < 3 ? "bg-green-500/10 border-green-500/20" : "border-white/5", "hover:bg-green-500/5 transition-colors")}>
+                        <TableCell className="font-medium pl-8 text-green-400/60">{index + 1}</TableCell>
+                        <TableCell>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold">{team?.team_name}</span>
+                            <span className="font-bold text-green-400">{score.team_name}</span>
                             {index < 3 && <Medal className={`w-4 h-4 ${medalColors[index]}`} />}
                           </div>
                         </TableCell>
-                        <TableCell className="text-white">{track?.track_name}</TableCell>
-                        <TableCell className="text-right font-bold text-lg pr-8 text-white">
+                        <TableCell className="text-green-400/80 font-medium">
+                          <span className="px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 text-[10px] font-bold uppercase tracking-wider">
+                            {score.group || 'GEN'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-lg pr-8 text-green-500">
                           {score.total_score}
                         </TableCell>
                       </TableRow>

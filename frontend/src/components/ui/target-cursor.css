@@ -16,8 +16,8 @@
     top: 0;
     width: 4px;
     height: 4px;
-    background: #4ade80;
-    /* Light Green */
+    background: #00f2ff;
+    /* Ocean Aqua Blue Neon */
     border-radius: 50%;
     transform: translate(-50%, -50%);
     will-change: transform;
@@ -29,8 +29,8 @@
     top: 0;
     width: 12px;
     height: 12px;
-    border: 2px solid #4ade80;
-    /* Light Green */
+    border: 2px solid #00f2ff;
+    /* Ocean Aqua Blue Neon */
     /* ReactBits uses 3px but 2px is cleaner */
     will-change: transform;
 }

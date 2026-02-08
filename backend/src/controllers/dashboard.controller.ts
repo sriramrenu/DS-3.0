@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import { PrismaClient, Group } from '@prisma/client';
 import { supabase } from '../lib/supabase';
+import { CONFIG } from '../config';
 
 const prisma = new PrismaClient();
 
 // Configuration: Active Round (In a real app, this might be in DB)
-const CURRENT_ROUND = 1;
+const CURRENT_ROUND = CONFIG.CURRENT_ROUND;
 
 export const getDashboardData = async (req: Request, res: Response) => {
     // @ts-ignore
