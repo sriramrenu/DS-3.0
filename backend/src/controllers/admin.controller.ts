@@ -161,3 +161,62 @@ export const getMembers = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Failed to fetch members', details: error });
     }
 };
+// Get Current Round
+export const getSystemSettings = async (req: Request, res: Response) => {
+    try {
+        const settings = await prisma.systemSetting.findMany();
+        res.json(settings);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch settings' });
+    }
+};
+
+// Initiate Round
+export const initiateRound = async (req: Request, res: Response) => {
+    const { round } = req.body;
+    if (!round) return res.status(400).json({ error: 'Missing round number' });
+
+    try {
+        const updated = await prisma.systemSetting.upsert({
+            where: { key: 'current_round' },
+            update: { value: round.toString() },
+            create: { key: 'current_round', value: round.toString() },
+        });
+
+        res.json({ message: `Round ${round} initiated successfully`, setting: updated });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to initiate round', details: error });
+    }
+};
+
+export const setRoundTimer = async (req: Request, res: Response) => {
+    const { durationHours } = req.body; // Duration in hours
+    if (durationHours === undefined) return res.status(400).json({ error: 'Missing duration' });
+
+    try {
+        const endTime = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+
+        const updated = await prisma.systemSetting.upsert({
+            where: { key: 'round_end_time' },
+            update: { value: endTime },
+            create: { key: 'round_end_time', value: endTime },
+        });
+
+        res.json({ message: 'Timer set successfully', endTime: updated.value });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to set timer', details: error });
+    }
+};
+
+export const stopRoundTimer = async (req: Request, res: Response) => {
+    try {
+        await prisma.systemSetting.delete({
+            where: { key: 'round_end_time' },
+        });
+
+        res.json({ message: 'Timer stopped successfully' });
+    } catch (error) {
+        // If it doesn't exist, we can just say it's stopped/cleared
+        res.json({ message: 'Timer cleared or already stopped' });
+    }
+};

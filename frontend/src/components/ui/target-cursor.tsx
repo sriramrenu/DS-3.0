@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import gsap from 'gsap';
 import './target-cursor.css';
 
@@ -12,7 +12,15 @@ interface TargetCursorProps {
     parallaxOn?: boolean;
 }
 
-export function TargetCursor({
+export function TargetCursor(props: TargetCursorProps) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+
+    if (!mounted) return null;
+    return <TargetCursorInner {...props} />;
+}
+
+function TargetCursorInner({
     targetSelector = 'a, button, input, textarea, select, .cursor-pointer', // Default selector to catch common interactive elements
     spinDuration = 2,
     hideDefaultCursor = true,

@@ -64,3 +64,16 @@ model Submission {
   numericAnswer Float?   // Optional if just image
   submittedAt   DateTime @default(now())
 }
+
+model SystemSetting {
+  key   String @id
+  value String
+}
+
+model RoundContent {
+  id            Int     @id
+  title         String
+  description   String
+  datasetPrefix String
+  questions     Json    // Store question structure: { type: 'number', label: 'Accuracy', placeholder: '...' }
+}

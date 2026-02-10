@@ -66,6 +66,60 @@ async function main() {
     }
 
     console.log(`Seeded ${teamsData.length} teams.`);
+
+    // 4. Create Initial System Settings
+    await prisma.systemSetting.upsert({
+        where: { key: 'current_round' },
+        update: {},
+        create: {
+            key: 'current_round',
+            value: '1',
+        },
+    });
+
+    // 5. Create Round Content
+    const rounds = [
+        {
+            id: 1,
+            title: 'Round 1: Exploratory Data Analysis',
+            description: 'Analyze the provided dataset to find key patterns and insights. Submit your visualization and accuracy score.',
+            datasetPrefix: 'round1',
+            questions: [
+                { id: 'q1', type: 'number', label: 'Exploration Score', placeholder: 'e.g. 85.0' }
+            ],
+        },
+        {
+            id: 2,
+            title: 'Round 2: Predictive Modeling',
+            description: 'Build a predictive model and optimize for the target metric. Submit your final results and visualization.',
+            datasetPrefix: 'round2',
+            questions: [
+                { id: 'q1', type: 'number', label: 'Model Accuracy', placeholder: 'e.g. 92.5' },
+                { id: 'q2', type: 'number', label: 'Mean Absolute Error', placeholder: 'e.g. 0.05' }
+            ],
+        },
+    ];
+
+    for (const r of rounds) {
+        await prisma.roundContent.upsert({
+            where: { id: r.id },
+            update: {
+                title: r.title,
+                description: r.description,
+                datasetPrefix: r.datasetPrefix,
+                questions: r.questions as any,
+            },
+            create: {
+                id: r.id,
+                title: r.title,
+                description: r.description,
+                datasetPrefix: r.datasetPrefix,
+                questions: r.questions as any,
+            },
+        });
+    }
+
+    console.log('Seeded system settings and round content.');
 }
 
 main()

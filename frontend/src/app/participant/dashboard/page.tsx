@@ -19,6 +19,11 @@ export default function ParticipantDashboard() {
   const [numericAnswer, setNumericAnswer] = useState('');
   const [datasetUrl, setDatasetUrl] = useState('');
   const [taskDesc, setTaskDesc] = useState('Loading task...');
+  const [roundTitle, setRoundTitle] = useState('');
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [endTime, setEndTime] = useState<string | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null); // seconds
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -47,11 +52,43 @@ export default function ParticipantDashboard() {
       .then(data => {
         if (data.datasetUrl) {
           setDatasetUrl(data.datasetUrl);
-          setTaskDesc(data.taskDescription || 'Download your dataset below.');
+        }
+        setRoundTitle(data.title || `Round ${data.round}`);
+        setTaskDesc(data.description || 'Download your dataset below.');
+        setQuestions(data.questions || []);
+        setEndTime(data.endTime);
+
+        // Initialize answers
+        if (data.questions) {
+          const initialAnswers: Record<string, string> = {};
+          data.questions.forEach((q: any) => initialAnswers[q.id] = '');
+          setAnswers(initialAnswers);
         }
       })
       .catch(err => console.error(err));
   }, [router]);
+
+  useEffect(() => {
+    if (!endTime) return;
+
+    const calculateTime = () => {
+      const remaining = Math.max(0, Math.floor((new Date(endTime).getTime() - Date.now()) / 1000));
+      setTimeRemaining(remaining);
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [endTime]);
+
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const isSubmissionEnabled = timeRemaining !== null && timeRemaining <= 1800; // 30 mins
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -98,7 +135,7 @@ export default function ParticipantDashboard() {
       <main className="flex-1 p-8">
         <div className="max-w-4xl mx-auto space-y-8">
           <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-headline font-bold text-white">Welcome back, {session.username}!</h1>
+            <h1 className="text-3xl font-headline font-bold text-white">{roundTitle}</h1>
             <p className="text-muted-foreground">{taskDesc}</p>
           </div>
 
@@ -133,8 +170,20 @@ export default function ParticipantDashboard() {
                   Submit Work
                 </CardTitle>
                 <CardDescription className="text-gray-400">Submit your team results here.</CardDescription>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] uppercase text-gray-500 font-bold">Time Remaining</span>
+                  <span className={`text-2xl font-mono font-bold ${timeRemaining !== null && timeRemaining <= 300 ? 'text-rose-500 animate-pulse' : 'text-emerald-400'}`}>
+                    {timeRemaining !== null ? formatTime(timeRemaining) : '--:--:--'}
+                  </span>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-6">
+                {!isSubmissionEnabled && timeRemaining !== null && (
+                  <div className="p-3 border border-amber-500/20 rounded-lg bg-amber-500/5 flex items-center gap-3 text-amber-400 text-sm">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    Submissions will enable automatically in the last 30 minutes of the round.
+                  </div>
+                )}
                 {submitted ? (
                   <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-6 text-center space-y-3">
                     <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto animate-bounce" />
@@ -144,18 +193,20 @@ export default function ParticipantDashboard() {
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="numeric_answer" className="text-gray-300">Model Accuracy Score</Label>
-                      <Input
-                        id="numeric_answer"
-                        type="number" // Assuming numeric input for score/accuracy
-                        step="0.01"
-                        placeholder="e.g. 95.5"
-                        value={numericAnswer}
-                        onChange={(e) => setNumericAnswer(e.target.value)}
-                        className="bg-black/20 border-white/10 text-gray-200 placeholder:text-gray-600 focus:border-emerald-500/50"
-                      />
-                    </div>
+                    {questions.map((q) => (
+                      <div key={q.id} className="space-y-2">
+                        <Label htmlFor={q.id} className="text-gray-300">{q.label}</Label>
+                        <Input
+                          id={q.id}
+                          type={q.type}
+                          step="0.01"
+                          placeholder={q.placeholder}
+                          value={answers[q.id] || ''}
+                          onChange={(e) => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                          className="bg-black/20 border-white/10 text-gray-200 placeholder:text-gray-600 focus:border-emerald-500/50"
+                        />
+                      </div>
+                    ))}
                     <div className="space-y-2">
                       <Label className="text-gray-300">Results Visualization (Image)</Label>
                       <div
@@ -188,10 +239,17 @@ export default function ParticipantDashboard() {
                     </div>
                     <Button
                       type="submit"
-                      className="w-full font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-[0_0_20px_rgba(16,185,129,0.2)]"
-                      disabled={submitting || !selectedFile}
+                      disabled={submitting || !selectedFile || !isSubmissionEnabled}
+                      className={`w-full h-12 text-lg font-headline font-bold transition-all duration-300 ${isSubmissionEnabled ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-[0_0_20px_rgba(16,185,129,0.2)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-white/5'}`}
                     >
-                      {submitting ? 'Uploading to Supabase...' : 'Submit Entry'}
+                      {submitting ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Submitting...
+                        </div>
+                      ) : (
+                        isSubmissionEnabled ? "Submit Entry" : "Locked Until Final 30 Mins"
+                      )}
                     </Button>
                   </form>
                 )}
