@@ -5,15 +5,18 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
-import { Role, teams, Score, initialScores, tracks } from '@/lib/mock-db';
+import { Role, Score, initialScores } from '@/lib/mock-db';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Trophy, Medal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MagicCard } from '@/components/ui/magic-card';
+import { fetchApi } from '@/lib/api';
+import { Loader2 } from 'lucide-react';
 
 export default function AdminLeaderboard() {
   const [session, setSession] = useState<{ id: string; role: Role; username: string } | null>(null);
   const [scores, setScores] = useState<Score[]>(initialScores);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -28,28 +31,35 @@ export default function AdminLeaderboard() {
       return;
     }
     setSession(parsed);
-
-    // Fetch scores from API
-    fetch('http://localhost:3001/api/admin/scores', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        // Transform data: Backend returns Teams with scores
-        const mapped: Score[] = data.map((t: any) => ({
-          team_id: t.id,
-          team_name: t.team_name,
-          group: t.group,
-          phase1_score: t.scores?.phase1_score || 0,
-          phase2_score: t.scores?.phase2_score || 0,
-          phase3_score: t.scores?.phase3_score || 0,
-          phase4_score: t.scores?.phase4_score || 0,
-          total_score: t.scores?.total_score || 0
-        }));
-        setScores(mapped);
-      })
-      .catch(err => console.error('Failed to load scores:', err));
   }, [router]);
+
+  useEffect(() => {
+    if (session) {
+      setLoading(true);
+      fetchApi('/admin/scores')
+        .then(data => {
+          const mapped: Score[] = data.map((t: any) => ({
+            team_id: t.id,
+            team_name: t.team_name,
+            group: t.group,
+            phase1_score: t.scores?.phase1_score || 0, // Keeping old props if Score type wasn't updated? NO, I updated Score type.
+            // I must use new props.
+            visualization_score: t.scores?.visualization_score || 0,
+            prediction_score: t.scores?.prediction_score || 0,
+            feature_score: t.scores?.feature_score || 0,
+            code_score: t.scores?.code_score || 0,
+            judges_score: t.scores?.judges_score || 0,
+            total_score: t.scores?.total_score || 0
+          }));
+          setScores(mapped);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error('Failed to load scores:', err);
+          setLoading(false);
+        });
+    }
+  }, [session]);
 
   if (!session) return null;
 

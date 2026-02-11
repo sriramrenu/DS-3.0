@@ -47,11 +47,13 @@ model Score {
   id           String   @id @default(uuid())
   teamId       String   @unique
   team         Team     @relation(fields: [teamId], references: [id])
-  phase1_score Float    @default(0)
-  phase2_score Float    @default(0)
-  phase3_score Float    @default(0)
-  phase4_score Float    @default(0)
-  total_score  Float    @default(0)
+
+  visualization_score Float    @default(0)
+  prediction_score    Float    @default(0)
+  feature_score       Float    @default(0)
+  code_score          Float    @default(0)
+  judges_score        Float    @default(0)
+  total_score         Float    @default(0)
   updatedAt    DateTime @updatedAt
 }
 
@@ -62,6 +64,7 @@ model Submission {
   round         Int
   imageUrl      String?  // URL from Supabase Storage
   numericAnswer Float?   // Optional if just image
+  answers       Json?    // Store multiple answers from complex forms
   submittedAt   DateTime @default(now())
 }
 
@@ -71,9 +74,12 @@ model SystemSetting {
 }
 
 model RoundContent {
-  id            Int     @id
+  id            Int
+  track         String  // "L1", "L2", "S1", "S2" or "General"
   title         String
   description   String
   datasetPrefix String
-  questions     Json    // Store question structure: { type: 'number', label: 'Accuracy', placeholder: '...' }
+  questions     Json    // Store question structure: [{ id, type, label, placeholder }]
+
+  @@id([id, track])
 }

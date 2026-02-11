@@ -14,8 +14,8 @@ export function MagicCard({
     children,
     className = "",
     gradientSize = 100,
-    gradientColor = "#2c7df7ff", // Matrix Green
-    gradientOpacity = 0.8,
+    gradientColor = "#00ff0dff", // Matrix Green
+    gradientOpacity = 0.5,
 }: MagicCardProps) {
     const cardRef = useRef<HTMLDivElement>(null);
     const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -58,7 +58,7 @@ export function MagicCard({
                 className="pointer-events-none absolute -inset-px transition duration-300"
                 style={{
                     opacity,
-                    background: `radial-gradient(${gradientSize}px circle at ${position.x}px ${position.y}px, ${gradientColor}, transparent 100%)`,
+                    background: `radial-gradient(80px circle at ${position.x}px ${position.y}px, ${gradientColor}, transparent 100%)`,
                 }}
             />
             <div className="relative h-full">{children}</div>

@@ -44,10 +44,18 @@ async function showDatabaseContents() {
             console.log('  No submissions yet');
         } else {
             submissions.forEach(sub => {
-                console.log(`  ID: ${sub.id} | Team: ${sub.team.teamName} | Answer: ${sub.numericAnswer} | Time: ${sub.submittedAt}`);
+                console.log(`  ID: ${sub.id} | Team: ${sub.team?.team_name} | Answer: ${sub.numericAnswer} | Time: ${sub.submittedAt}`);
                 console.log(`  Image: ${sub.imageUrl}`);
             });
         }
+
+        // Settings
+        const settings = await prisma.systemSetting.findMany();
+        console.log('\n\n⚙️ SYSTEM SETTINGS (' + settings.length + ' total)');
+        console.log('-'.repeat(80));
+        settings.forEach(s => {
+            console.log(`  ${s.key}: ${s.value}`);
+        });
 
         console.log('\n' + '='.repeat(80));
         console.log('✅ Database query complete!\n');

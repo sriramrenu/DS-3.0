@@ -10,6 +10,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MagicCard } from '@/components/ui/magic-card';
 import Image from 'next/image';
+import { fetchApi } from '@/lib/api';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Loader2 } from 'lucide-react';
 
 export default function AdminSubmissions() {
   const [session, setSession] = useState<{ id: string; role: Role; username: string } | null>(null);
@@ -35,84 +38,123 @@ export default function AdminSubmissions() {
   useEffect(() => {
     if (session) {
       setLoading(true);
-      fetch('http://localhost:3001/api/admin/submissions', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-        .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        })
+      fetchApi('/admin/submissions')
         .then(data => {
-          console.log('Submissions loaded:', data);
           setSubmissions(data);
           setLoading(false);
         })
         .catch(err => {
-          console.error('Failed to load submissions:', err);
           setError(err.message);
           setLoading(false);
         });
     }
   }, [session]);
 
+  const rounds = [1, 2, 3, 4];
+
   if (!session) return null;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-black">
       <Navbar role={session.role} username={session.username} />
       <div className="flex flex-1">
         <AdminSidebar />
         <main className="flex-1 p-8">
-          <div className="max-w-6xl mx-auto space-y-6">
-            <h1 className="text-3xl font-headline font-bold text-green-500">Submissions</h1>
-
-            {loading && <p className="text-green-400/60">Loading submissions...</p>}
-            {error && <p className="text-red-400">Error: {error}</p>}
-            {!loading && !error && submissions.length === 0 && (
-              <p className="text-green-400/60 font-medium">No submissions yet. Waiting for participants to submit their work.</p>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {submissions.map((sub, i) => {
-                const teamName = sub.team?.team_name || 'Unknown Team';
-                const trackId = sub.team?.track_id;
-                const trackName = sub.team?.group || 'General'; // Using group as per recent branding
-                const time = new Date(sub.submittedAt).toLocaleTimeString();
-
-                return (
-                  <MagicCard key={sub.id} className="overflow-hidden group border-white/10 bg-black/40 backdrop-blur-md text-white">
-                    <div className="relative h-48 w-full bg-muted">
-                      {sub.imageUrl ? (
-                        <Image
-                          src={sub.imageUrl}
-                          alt="Submission"
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform"
-                          data-ai-hint="team submission"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-full text-green-400/40">No Image</div>
-                      )}
-                    </div>
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-bold text-lg text-green-400">{teamName}</p>
-                          <p className="text-xs text-green-400/60">Submitted at {time}</p>
-                        </div>
-                        <Badge className="bg-green-500/10 text-green-400 border-green-500/20">{trackName}</Badge>
-                      </div>
-                      <div className="p-2 rounded bg-green-500/5 border border-green-500/10 flex items-center justify-between">
-                        <span className="text-sm text-green-500 uppercase font-bold text-[10px] tracking-widest">Answer</span>
-                        <span className="font-mono font-bold text-green-400">{sub.numericAnswer || 'N/A'}</span>
-                      </div>
-                    </CardContent>
-                  </MagicCard>
-                );
-              })}
+          <div className="max-w-6xl mx-auto space-y-8">
+            <div className="flex flex-col gap-2">
+              <h1 className="text-3xl font-headline font-bold text-green-500">Participant Submissions</h1>
+              <p className="text-gray-400">Review and verify works submitted by teams across all rounds.</p>
             </div>
+
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <Loader2 className="w-8 h-8 text-green-500 animate-spin" />
+                <p className="text-gray-500 animate-pulse font-medium">Fetching submissions...</p>
+              </div>
+            ) : error ? (
+              <div className="p-4 border border-rose-500/20 bg-rose-500/5 rounded-lg text-rose-400">
+                Failed to load: {error}
+              </div>
+            ) : (
+              <Tabs defaultValue="1" className="space-y-6">
+                <TabsList className="bg-white/5 border border-white/10 p-1 rounded-xl w-fit">
+                  {rounds.map(r => (
+                    <TabsTrigger
+                      key={r}
+                      value={r.toString()}
+                      className="px-6 py-2 rounded-lg data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:shadow-[0_0_15px_rgba(34,197,94,0.3)] transition-all"
+                    >
+                      Round {r}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+
+                {rounds.map(r => {
+                  const filtered = submissions.filter(s => s.round === r);
+
+                  return (
+                    <TabsContent key={r} value={r.toString()} className="mt-0">
+                      {filtered.length === 0 ? (
+                        <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-2xl">
+                          <p className="text-gray-500 font-medium">No submissions found for Round {r}</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {filtered.map((sub) => {
+                            const teamName = sub.team?.team_name || 'Unknown Team';
+                            const trackName = sub.team?.group || 'General';
+                            const time = new Date(sub.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+
+                            return (
+                              <MagicCard key={sub.id} className="overflow-hidden group border-white/10 bg-black/40 backdrop-blur-md text-white transition-all hover:border-green-500/30">
+                                <div className="relative h-48 w-full bg-white/5 overflow-hidden">
+                                  {sub.imageUrl ? (
+                                    <Image
+                                      src={sub.imageUrl}
+                                      alt="Submission"
+                                      fill
+                                      className="object-cover group-hover:scale-110 transition-transform duration-500"
+                                      unoptimized
+                                    />
+                                  ) : (
+                                    <div className="flex items-center justify-center h-full text-green-400/20">No Visualization</div>
+                                  )}
+                                  <div className="absolute top-3 right-3">
+                                    <Badge className="bg-black/60 backdrop-blur-md text-green-400 border-green-500/30 font-bold uppercase tracking-tight text-[10px]">{trackName}</Badge>
+                                  </div>
+                                </div>
+                                <CardContent className="p-5 space-y-4">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <p className="font-bold text-lg text-white group-hover:text-green-400 transition-colors">{teamName}</p>
+                                      <p className="text-xs text-gray-500 font-medium">Submitted at {time}</p>
+                                    </div>
+                                  </div>
+                                  {/* Multi-part Answers */}
+                                  {sub.answers && Object.keys(sub.answers).length > 0 && (
+                                    <div className="mt-4 space-y-2 border-t border-white/5 pt-4">
+                                      <p className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">Submission Details</p>
+                                      <div className="space-y-3 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                                        {Object.entries(sub.answers).map(([key, value]: [string, any]) => (
+                                          <div key={key} className="space-y-1">
+                                            <p className="text-[10px] text-green-500/70 font-semibold uppercase">{key.replace(/_/g, ' ')}</p>
+                                            <p className="text-xs text-gray-300 leading-relaxed font-medium bg-white/5 p-2 rounded border border-white/5">{value}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </MagicCard>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </TabsContent>
+                  );
+                })}
+              </Tabs>
+            )}
           </div>
         </main>
       </div>

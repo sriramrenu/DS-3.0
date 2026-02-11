@@ -9,7 +9,10 @@ import { getSubmissions, updateScore, getScores, getMembers, updateBatchScores, 
 import { getDashboardStats } from '../controllers/stats.controller';
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() }); // Store in memory to upload to Supabase
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+});
 
 // Public Routes
 router.post('/login', login);

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -9,13 +8,17 @@ import { Role, teams, Score, initialScores } from '@/lib/mock-db';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Save, RefreshCw } from 'lucide-react';
+import { Save, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { MagicCard } from '@/components/ui/magic-card';
+import { fetchApi } from '@/lib/api';
 
 export default function AdminScoreCard() {
   const [session, setSession] = useState<{ id: string; role: Role; username: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const [scores, setScores] = useState<Score[]>(initialScores);
+  const [saving, setSaving] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -30,38 +33,51 @@ export default function AdminScoreCard() {
       return;
     }
     setSession(parsed);
-
-    // Fetch scores from API
-    fetch('http://localhost:3001/api/admin/scores', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        // Transform data: Backend returns Teams with scores
-        const mapped: Score[] = data.map((t: any) => ({
-          team_id: t.id,
-          team_name: t.team_name, // Add logic to handle helper if needed
-          phase1_score: t.scores?.phase1_score || 0,
-          phase2_score: t.scores?.phase2_score || 0,
-          phase3_score: t.scores?.phase3_score || 0,
-          phase4_score: t.scores?.phase4_score || 0,
-          total_score: t.scores?.total_score || 0
-        }));
-        setScores(mapped);
-      })
-      .catch(err => console.error(err));
+    setLoading(false);
   }, [router]);
 
-  const updateScore = (teamId: string, round: number, value: string) => {
+  const fetchScoreboard = async () => {
+    try {
+      const data = await fetchApi('/admin/scores');
+      // Transform data: Backend returns Teams with scores
+      const mapped: Score[] = data.map((t: any) => ({
+        team_id: t.id,
+        team_name: t.team_name,
+        visualization_score: t.scores?.visualization_score || 0,
+        prediction_score: t.scores?.prediction_score || 0,
+        feature_score: t.scores?.feature_score || 0,
+        code_score: t.scores?.code_score || 0,
+        judges_score: t.scores?.judges_score || 0,
+        total_score: t.scores?.total_score || 0
+      }));
+      setScores(mapped);
+    } catch (err) {
+      console.error('Failed to fetch scores:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (session) {
+      const init = async () => {
+        setIsDataLoading(true);
+        await fetchScoreboard();
+        setIsDataLoading(false);
+      };
+      init();
+    }
+  }, [session]);
+
+  const updateScore = (teamId: string, field: keyof Score, value: string) => {
     const num = parseFloat(value) || 0;
     setScores(prev => prev.map(s => {
       if (s.team_id === teamId) {
-        const updated = { ...s };
-        if (round === 1) updated.phase1_score = num;
-        if (round === 2) updated.phase2_score = num;
-        if (round === 3) updated.phase3_score = num;
-        if (round === 4) updated.phase4_score = num;
-        updated.total_score = updated.phase1_score + updated.phase2_score + updated.phase3_score + updated.phase4_score;
+        const updated = { ...s, [field]: num };
+        updated.total_score =
+          (updated.visualization_score || 0) +
+          (updated.prediction_score || 0) +
+          (updated.feature_score || 0) +
+          (updated.code_score || 0) +
+          (updated.judges_score || 0);
         return updated;
       }
       return s;
@@ -69,37 +85,56 @@ export default function AdminScoreCard() {
   };
 
   const saveScores = async () => {
+    setSaving(true);
     try {
       const updates = scores.map(s => ({
         teamId: s.team_id,
-        p1: s.phase1_score,
-        p2: s.phase2_score,
-        p3: s.phase3_score,
-        p4: s.phase4_score
+        viz: s.visualization_score,
+        pred: s.prediction_score,
+        feat: s.feature_score,
+        code: s.code_score,
+        judge: s.judges_score
       }));
 
-      const res = await fetch('http://localhost:3001/api/admin/scores/bulk', {
+      await fetchApi('/admin/scores/bulk', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify({ updates })
       });
-
-      if (!res.ok) throw new Error("Failed to save scores");
 
       toast({
         title: "Scores Saved",
         description: "All team rankings have been updated successfully.",
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast({ title: "Error", description: "Failed to save scores", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err.message || "Failed to save scores",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (!session) return null;
+  if (loading || !session) return null;
+
+  if (isDataLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-black">
+        <Navbar role={session.role} username={session.username} />
+        <div className="flex flex-1">
+          <AdminSidebar />
+          <main className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="w-8 h-8 text-[var(--p-500)] animate-spin" />
+              <p className="text-[var(--p-400)] font-medium animate-pulse">Synchronizing scores...</p>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -110,8 +145,8 @@ export default function AdminScoreCard() {
           <div className="max-w-6xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-headline font-bold text-green-500">Phase Scoring</h1>
-                <p className="text-green-400/60">Manage scores for each competition phase.</p>
+                <h1 className="text-3xl font-headline font-bold text-green-500">Evaluation Scoring</h1>
+                <p className="text-green-400/60">Manage scores for each evaluation criteria.</p>
               </div>
               <div className="flex gap-3">
                 <Button
@@ -128,12 +163,13 @@ export default function AdminScoreCard() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-green-500/5 hover:bg-transparent border-white/10">
-                    <TableHead className="font-bold w-[250px] text-green-400">Team</TableHead>
-                    <TableHead className="font-bold text-center text-green-400">Data Ingestion</TableHead>
-                    <TableHead className="font-bold text-center text-green-400">Data Cleaning</TableHead>
-                    <TableHead className="font-bold text-center text-green-400">Model Building</TableHead>
-                    <TableHead className="font-bold text-center text-green-400">Prediction</TableHead>
-                    <TableHead className="font-bold text-right text-green-400">Total Score</TableHead>
+                    <TableHead className="font-bold w-[200px] text-green-400">Team</TableHead>
+                    <TableHead className="font-bold text-center text-green-400">Visualization (6)</TableHead>
+                    <TableHead className="font-bold text-center text-green-400">Predictions (7)</TableHead>
+                    <TableHead className="font-bold text-center text-green-400">Feature Eng (6)</TableHead>
+                    <TableHead className="font-bold text-center text-green-400">ML Code (6)</TableHead>
+                    <TableHead className="font-bold text-center text-green-400">Judges (25)</TableHead>
+                    <TableHead className="font-bold text-right text-green-400">Total (50)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -143,33 +179,41 @@ export default function AdminScoreCard() {
                       <TableCell>
                         <Input
                           type="number"
-                          className="w-20 mx-auto text-center text-green-400 bg-green-500/5 border-green-500/20 focus:border-green-500/50"
-                          value={score.phase1_score}
-                          onChange={(e) => updateScore(score.team_id, 1, e.target.value)}
+                          className="w-16 mx-auto text-center text-green-400 bg-green-500/5 border-green-500/20 focus:border-green-500/50"
+                          value={score.visualization_score}
+                          onChange={(e) => updateScore(score.team_id, 'visualization_score', e.target.value)}
                         />
                       </TableCell>
                       <TableCell>
                         <Input
                           type="number"
-                          className="w-20 mx-auto text-center text-green-400 bg-green-500/5 border-green-500/20 focus:border-green-500/50"
-                          value={score.phase2_score}
-                          onChange={(e) => updateScore(score.team_id, 2, e.target.value)}
+                          className="w-16 mx-auto text-center text-green-400 bg-green-500/5 border-green-500/20 focus:border-green-500/50"
+                          value={score.prediction_score}
+                          onChange={(e) => updateScore(score.team_id, 'prediction_score', e.target.value)}
                         />
                       </TableCell>
                       <TableCell>
                         <Input
                           type="number"
-                          className="w-20 mx-auto text-center text-green-400 bg-green-500/5 border-green-500/20 focus:border-green-500/50"
-                          value={score.phase3_score}
-                          onChange={(e) => updateScore(score.team_id, 3, e.target.value)}
+                          className="w-16 mx-auto text-center text-green-400 bg-green-500/5 border-green-500/20 focus:border-green-500/50"
+                          value={score.feature_score}
+                          onChange={(e) => updateScore(score.team_id, 'feature_score', e.target.value)}
                         />
                       </TableCell>
                       <TableCell>
                         <Input
                           type="number"
-                          className="w-20 mx-auto text-center text-green-400 bg-green-500/5 border-green-500/20 focus:border-green-500/50"
-                          value={score.phase4_score}
-                          onChange={(e) => updateScore(score.team_id, 4, e.target.value)}
+                          className="w-16 mx-auto text-center text-green-400 bg-green-500/5 border-green-500/20 focus:border-green-500/50"
+                          value={score.code_score}
+                          onChange={(e) => updateScore(score.team_id, 'code_score', e.target.value)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          className="w-16 mx-auto text-center text-green-400 bg-green-500/5 border-green-500/20 focus:border-green-500/50"
+                          value={score.judges_score}
+                          onChange={(e) => updateScore(score.team_id, 'judges_score', e.target.value)}
                         />
                       </TableCell>
                       <TableCell className="text-right font-bold text-green-500 text-lg pr-8">

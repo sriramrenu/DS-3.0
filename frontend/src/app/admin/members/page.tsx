@@ -5,10 +5,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
-import { Role, teams, users, tracks } from '@/lib/mock-db';
+import { Role } from '@/lib/mock-db';
+import { fetchApi } from '@/lib/api';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { MagicCard } from '@/components/ui/magic-card';
+import { Loader2 } from 'lucide-react';
 
 export default function AdminMembers() {
   const [session, setSession] = useState<{ id: string; role: Role; username: string } | null>(null);
@@ -32,11 +34,8 @@ export default function AdminMembers() {
 
   useEffect(() => {
     if (session) {
-      const token = localStorage.getItem('token');
-      fetch('http://localhost:3001/api/admin/members', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-        .then(res => res.json())
+      setLoading(true);
+      fetchApi('/admin/members')
         .then(data => {
           setMembers(data);
           setLoading(false);
@@ -48,7 +47,24 @@ export default function AdminMembers() {
     }
   }, [session]);
 
-  if (!session || loading) return null;
+  if (!session) return null;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-black">
+        <Navbar role={session.role} username={session.username} />
+        <div className="flex flex-1">
+          <AdminSidebar />
+          <main className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="w-8 h-8 text-[var(--p-500)] animate-spin" />
+              <p className="text-[var(--p-400)] font-medium animate-pulse">Loading members...</p>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -57,7 +73,7 @@ export default function AdminMembers() {
         <AdminSidebar />
         <main className="flex-1 p-8">
           <div className="max-w-6xl mx-auto space-y-6">
-            <h1 className="text-3xl font-headline font-bold text-blue-500">Members & Teams</h1>
+            <h1 className="text-3xl font-headline font-bold text-[var(--p-500)]">Members & Teams</h1>
 
             <MagicCard className="bg-black/40 backdrop-blur-md rounded-lg shadow-sm border-white/10 overflow-hidden text-white">
               <Table>
@@ -74,15 +90,15 @@ export default function AdminMembers() {
                     const troop = member.team?.group || 'Unassigned';
                     return (
                       <TableRow key={member.id}>
-                        <TableCell className="font-medium text-blue-400">{member.username}</TableCell>
-                        <TableCell className="text-blue-400 font-medium">{member.team?.team_name || 'N/A'}</TableCell>
+                        <TableCell className="font-medium text-[var(--p-400)]">{member.username}</TableCell>
+                        <TableCell className="text-[var(--p-400)] font-medium">{member.team?.team_name || 'N/A'}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="border-blue-400 text-blue-400 font-bold">
+                          <Badge variant="outline" className="border-[var(--p-400)] text-[var(--p-400)] font-bold">
                             {troop}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">
+                          <Badge className="bg-[var(--p-500)]/10 text-[var(--p-400)] border-[var(--p-500)]/20">
                             {member.role}
                           </Badge>
                         </TableCell>

@@ -27,10 +27,23 @@
     --input: 135 50% 20%;
     --ring: 135 100% 50%;
     --radius: 0.75rem;
-    --p-300: #86efac;
-    /* Green 300 */
+
+    /* Colors - Matrix Green Palette */
+    --p-50: #f0fff4;
+    --p-100: #dcffe4;
+    --p-200: #b9ffc9;
+    --p-300: #86ffa3;
+    --p-400: #4ade80;
+    /* Standard Matrix Green */
+    --p-500: #22c55e;
     --p-600: #16a34a;
-    /* Green 600 */
+    --p-700: #15803d;
+    --p-800: #166534;
+    --p-900: #14532d;
+    --p-950: #052e16;
+    --bg-main: #020502;
+    --bg-glass: rgba(5, 15, 5, 0.7);
+    --border-purple: rgba(34, 197, 94, 0.2);
   }
 }
 
@@ -59,6 +72,7 @@
 
   body {
     @apply text-foreground;
+    background-color: var(--bg-main);
     font-feature-settings: "rlig" 1, "calt" 1;
     cursor: none !important;
   }

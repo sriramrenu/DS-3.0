@@ -18,14 +18,14 @@ export function Navbar({ role, username }: { role: string; username: string }) {
   const homeLink = role === 'Admin' ? '/admin/dashboard' : '/participant/dashboard';
 
   return (
-    <MagicCard className="rounded-none border-b border-white/10 bg-black/50 backdrop-blur-md shadow-sm px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+    <MagicCard className="rounded-none border-b border-white/10 bg-[var(--bg-glass)] backdrop-blur-md shadow-sm px-6 py-4 flex items-center justify-between sticky top-0 z-50">
       <Link href={homeLink} className="flex items-center gap-3 group">
         <img
           src="/assets/logo.png"
           alt="DataSprint 3.0"
           className="h-10 w-auto object-contain group-hover:scale-105 transition-transform"
         />
-        <span className="font-headline font-bold text-xl text-[#4ade80] tracking-tight">DATASPRINT 3.0</span>
+        <span className="font-headline font-bold text-xl text-[var(--p-400)] tracking-tight">DATASPRINT 3.0</span>
       </Link>
 
       <div className="flex items-center gap-6">

@@ -34,12 +34,16 @@ export interface Score {
   team_id: string;
   team_name: string;
   group?: string;
-  phase1_score: number;
-  phase2_score: number;
-  phase3_score: number;
-  phase4_score: number;
+  visualization_score: number;
+  prediction_score: number;
+  feature_score: number;
+  code_score: number;
+  judges_score: number;
   total_score: number;
 }
+
+// ... (skipping unchanged lines if possible, but replace allows block)
+// I will just replace the interface and initialScores blocks.
 
 export const tracks: Track[] = [
   { id: 'track-1', track_name: 'Machine Learning', download_link: 'https://example.com/ml-dataset' },
@@ -75,9 +79,10 @@ export const users: User[] = [
 export const initialScores: Score[] = teams.map((team) => ({
   team_id: team.id,
   team_name: team.team_name,
-  phase1_score: 0,
-  phase2_score: 0,
-  phase3_score: 0,
-  phase4_score: 0,
+  visualization_score: 0,
+  prediction_score: 0,
+  feature_score: 0,
+  code_score: 0,
+  judges_score: 0,
   total_score: 0,
 }));

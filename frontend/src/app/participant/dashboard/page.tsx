@@ -8,16 +8,19 @@ import { MagicCard } from '@/components/ui/magic-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Download, Upload, CheckCircle2, AlertCircle, FileImage } from 'lucide-react';
+import { Download, Upload, CheckCircle2, AlertCircle, FileImage, Loader2, Lock } from 'lucide-react';
+import { fetchApi } from '@/lib/api';
 
 export default function ParticipantDashboard() {
   const [session, setSession] = useState<{ id: string; role: string; team_id: string; username: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [numericAnswer, setNumericAnswer] = useState('');
-  const [datasetUrl, setDatasetUrl] = useState('');
+  const [mainDatasets, setMainDatasets] = useState<string[]>([]);
+  const [finalDatasets, setFinalDatasets] = useState<string[]>([]);
   const [taskDesc, setTaskDesc] = useState('Loading task...');
   const [roundTitle, setRoundTitle] = useState('');
   const [questions, setQuestions] = useState<any[]>([]);
@@ -45,14 +48,26 @@ export default function ParticipantDashboard() {
     setLoading(false);
 
     // Fetch Dashboard Data
-    fetch('http://localhost:3001/api/dashboard', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.datasetUrl) {
-          setDatasetUrl(data.datasetUrl);
+    const init = async () => {
+      setIsDataLoading(true);
+      try {
+        const data = await fetchApi('/dashboard');
+
+        // Handle new array-based datasets
+        if (data.mainDatasets && Array.isArray(data.mainDatasets)) {
+          setMainDatasets(data.mainDatasets);
+        } else if (data.datasetUrl) {
+          // Fallback for legacy single URL
+          setMainDatasets([data.datasetUrl]);
         }
+
+        if (data.finalDatasets && Array.isArray(data.finalDatasets)) {
+          setFinalDatasets(data.finalDatasets);
+        } else if (data.finalDatasetUrl) {
+          // Fallback for legacy single URL
+          setFinalDatasets([data.finalDatasetUrl]);
+        }
+
         setRoundTitle(data.title || `Round ${data.round}`);
         setTaskDesc(data.description || 'Download your dataset below.');
         setQuestions(data.questions || []);
@@ -64,8 +79,13 @@ export default function ParticipantDashboard() {
           data.questions.forEach((q: any) => initialAnswers[q.id] = '');
           setAnswers(initialAnswers);
         }
-      })
-      .catch(err => console.error(err));
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsDataLoading(false);
+      }
+    };
+    init();
   }, [router]);
 
   useEffect(() => {
@@ -102,24 +122,22 @@ export default function ParticipantDashboard() {
 
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('file', selectedFile);
-      formData.append('numericAnswer', numericAnswer);
 
-      const res = await fetch('http://localhost:3001/api/submit', {
+      // Send all answers as a JSON string
+      formData.append('answers', JSON.stringify(answers));
+
+      await fetchApi('/submit', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: formData
       });
 
-      if (!res.ok) throw new Error('Submission failed');
-
       setSubmitted(true);
       setSelectedFile(null);
-      setNumericAnswer('');
-    } catch (e) {
-      alert('Submission failed! Check console.');
+      // Don't reset answers immediately so user can see what they submitted or "Submit another"
+    } catch (e: any) {
+      alert(e.message || 'Submission failed! Check console.');
       console.error(e);
     } finally {
       setSubmitting(false);
@@ -127,6 +145,20 @@ export default function ParticipantDashboard() {
   };
 
   if (loading || !session) return null;
+
+  if (isDataLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-black">
+        <Navbar role={session.role} username={session.username} />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-8 h-8 text-green-500 animate-spin" />
+            <p className="text-gray-400 font-medium animate-pulse">Syncing datasets...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -136,123 +168,196 @@ export default function ParticipantDashboard() {
         <div className="max-w-4xl mx-auto space-y-8">
           <div className="flex flex-col gap-2">
             <h1 className="text-3xl font-headline font-bold text-white">{roundTitle}</h1>
-            <p className="text-muted-foreground">{taskDesc}</p>
+            <div className="text-muted-foreground whitespace-pre-wrap text-sm leading-relaxed">
+              {taskDesc.split(/(\[ NOTE: .*? \])/g).map((part, i) => (
+                part.startsWith('[ NOTE:') ? (
+                  <span key={i} className="text-rose-500 font-bold block mt-4 border border-rose-500/20 bg-rose-500/5 p-4 rounded-xl animate-pulse shadow-[0_0_15px_rgba(244,63,94,0.1)]">
+                    {part}
+                  </span>
+                ) : (
+                  <span key={i}>{part}</span>
+                )
+              ))}
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            <MagicCard className="border-t-4 border-t-blue-500 bg-black/40 backdrop-blur-md text-white">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <Download className="w-5 h-5 text-blue-400" />
-                  Dataset & Resources
-                </CardTitle>
-                <CardDescription className="text-gray-400">Download your track-specific dataset.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 rounded-lg bg-white/5 border border-white/10 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-300">Target Dataset</p>
-                    <p className="text-xs text-gray-500">Source: Supabase • .csv/.zip</p>
-                  </div>
-                  <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-500 text-white border-none" disabled={!datasetUrl}>
-                    <a href={datasetUrl || '#'} target="_blank" rel="noopener noreferrer">
-                      Download
-                    </a>
-                  </Button>
-                </div>
-              </CardContent>
-            </MagicCard>
-
             <MagicCard className="border-t-4 border-t-emerald-500 bg-black/40 backdrop-blur-md text-white">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-white">
-                  <Upload className="w-5 h-5 text-emerald-400" />
+                  <Download className="w-5 h-5 text-emerald-400" />
+                  Dataset & Resources
+                </CardTitle>
+                <CardDescription className="text-gray-400">Download your track-specific datasets.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 rounded-lg bg-white/5 border border-white/10 flex flex-col gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-300">Phase 1: Initial Datasets</p>
+                    <p className="text-xs text-gray-500">Source: Supabase • .csv/.zip</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {mainDatasets.length > 0 ? (
+                      mainDatasets.map((url, idx) => (
+                        <Button key={idx} asChild size="sm" className="bg-green-600 hover:bg-green-500 text-white border-none">
+                          <a href={url} target="_blank" rel="noopener noreferrer">
+                            Download Part {idx + 1}
+                          </a>
+                        </Button>
+                      ))
+                    ) : (
+                      <p className="text-xs text-yellow-500">No datasets available yet.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Phase 2 Dataset - Conditional */}
+                {finalDatasets.length > 0 && (
+                  <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-3 animate-in fade-in slide-in-from-top-4 duration-1000">
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-400">Phase 2: Final Supplementary</p>
+                      <p className="text-xs text-emerald-500/70">Released: Last 45 Mins • Complex Patterns</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {finalDatasets.map((url, idx) => (
+                        <Button key={idx} asChild size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white border-none shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                          <a href={url} target="_blank" rel="noopener noreferrer">
+                            Download Part {idx + 1}
+                          </a>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </MagicCard>
+
+            <MagicCard className="border-t-4 border-t-green-500 bg-black/40 backdrop-blur-md text-white relative overflow-hidden">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Upload className="w-5 h-5 text-green-400" />
                   Submit Work
                 </CardTitle>
                 <CardDescription className="text-gray-400">Submit your team results here.</CardDescription>
                 <div className="flex flex-col items-end">
-                  <span className="text-[10px] uppercase text-gray-500 font-bold">Time Remaining</span>
-                  <span className={`text-2xl font-mono font-bold ${timeRemaining !== null && timeRemaining <= 300 ? 'text-rose-500 animate-pulse' : 'text-emerald-400'}`}>
-                    {timeRemaining !== null ? formatTime(timeRemaining) : '--:--:--'}
-                  </span>
+                  <span className="text-[10px] uppercase text-gray-500 font-bold">Ends At / Time Remaining</span>
+                  <div className="flex flex-col items-end">
+                    {endTime && (
+                      <span className="text-xs text-gray-400 font-medium">
+                        {new Date(endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                      </span>
+                    )}
+                    <span className={`text-2xl font-mono font-bold ${timeRemaining !== null && timeRemaining <= 300 ? 'text-rose-500 animate-pulse' : 'text-green-400'}`}>
+                      {timeRemaining !== null ? formatTime(timeRemaining) : '--:--:--'}
+                    </span>
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {!isSubmissionEnabled && timeRemaining !== null && (
-                  <div className="p-3 border border-amber-500/20 rounded-lg bg-amber-500/5 flex items-center gap-3 text-amber-400 text-sm">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                    Submissions will enable automatically in the last 30 minutes of the round.
+              <CardContent className="space-y-6 relative">
+                {/* Blur Overlay & Message */}
+                {!isSubmissionEnabled && !submitted && (
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md transition-all duration-500 rounded-b-xl">
+                    <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-full mb-4 shadow-[0_0_20px_rgba(34,197,94,0.1)]">
+                      <Lock className="w-8 h-8 text-green-500" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-2">Submission Locked</h3>
+                    <p className="text-sm text-gray-400 text-center px-6">
+                      This portal will unlock automatically during the <span className="text-green-400 font-bold">final 30 minutes</span> of the round.
+                    </p>
                   </div>
                 )}
-                {submitted ? (
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-6 text-center space-y-3">
-                    <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto animate-bounce" />
-                    <h3 className="font-bold text-white">Submission Received!</h3>
-                    <p className="text-sm text-emerald-300">Your work has been successfully uploaded to the database.</p>
-                    <Button variant="outline" size="sm" onClick={() => setSubmitted(false)} className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20">Submit another</Button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    {questions.map((q) => (
-                      <div key={q.id} className="space-y-2">
-                        <Label htmlFor={q.id} className="text-gray-300">{q.label}</Label>
-                        <Input
-                          id={q.id}
-                          type={q.type}
-                          step="0.01"
-                          placeholder={q.placeholder}
-                          value={answers[q.id] || ''}
-                          onChange={(e) => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
-                          className="bg-black/20 border-white/10 text-gray-200 placeholder:text-gray-600 focus:border-emerald-500/50"
-                        />
-                      </div>
-                    ))}
-                    <div className="space-y-2">
-                      <Label className="text-gray-300">Results Visualization (Image)</Label>
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-white/10 rounded-lg p-8 text-center cursor-pointer hover:bg-white/5 hover:border-emerald-500/30 transition-all group"
+
+                <div className={`${!isSubmissionEnabled && !submitted ? 'opacity-20 pointer-events-none' : ''} transition-all duration-500`}>
+                  {submitted ? (
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 text-center space-y-3">
+                      <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto animate-bounce" />
+                      <h3 className="font-bold text-white">Submission Received!</h3>
+                      <p className="text-sm text-green-300">Your work has been successfully uploaded to the database.</p>
+                      <Button variant="outline" size="sm" onClick={() => setSubmitted(false)} className="border-green-500/30 text-green-400 hover:bg-green-500/20">Submit another</Button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      {questions.map((q) => (
+                        <div key={q.id} className="space-y-2">
+                          <Label htmlFor={q.id} className="text-gray-300">{q.label}</Label>
+                          {q.type === 'select' ? (
+                            <select
+                              id={q.id}
+                              value={answers[q.id] || ''}
+                              onChange={(e) => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                              className="w-full h-10 px-3 rounded-md bg-black/20 border border-white/10 text-gray-200 focus:outline-none focus:border-green-500/50 appearance-none cursor-pointer"
+                            >
+                              <option value="" disabled className="bg-gray-900">{q.placeholder}</option>
+                              {q.options?.map((opt: string) => (
+                                <option key={opt} value={opt} className="bg-gray-900">{opt}</option>
+                              ))}
+                            </select>
+                          ) : q.type === 'textarea' ? (
+                            <textarea
+                              id={q.id}
+                              placeholder={q.placeholder}
+                              value={answers[q.id] || ''}
+                              onChange={(e) => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                              className="w-full min-h-[100px] p-3 rounded-md bg-black/20 border border-white/10 text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-green-500/50 resize-none"
+                            />
+                          ) : q.type === 'image' ? (
+                            <div
+                              onClick={() => fileInputRef.current?.click()}
+                              className="border-2 border-dashed border-white/10 rounded-lg p-8 text-center cursor-pointer hover:bg-white/5 hover:border-green-500/30 transition-all group"
+                            >
+                              {selectedFile ? (
+                                <div className="space-y-2">
+                                  <FileImage className="w-8 h-8 text-green-400 mx-auto mb-2" />
+                                  <p className="text-sm font-medium truncate max-w-xs mx-auto text-gray-300">{selectedFile.name}</p>
+                                  <p className="text-xs text-gray-500">Click to change file</p>
+                                </div>
+                              ) : (
+                                <>
+                                  <Upload className="w-8 h-8 text-gray-600 group-hover:text-green-400 transition-colors mx-auto mb-2" />
+                                  <p className="text-xs text-gray-500 group-hover:text-gray-400">Drop your image here or click to browse</p>
+                                </>
+                              )}
+                              <input
+                                type="file"
+                                id="file"
+                                name="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                accept="image/*"
+                                onChange={handleFileChange}
+                                required={!selectedFile}
+                              />
+                            </div>
+                          ) : (
+                            <Input
+                              id={q.id}
+                              type={q.type}
+                              step="0.01"
+                              placeholder={q.placeholder}
+                              value={answers[q.id] || ''}
+                              onChange={(e) => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                              className="bg-black/20 border-white/10 text-gray-200 placeholder:text-gray-600 focus:border-green-500/50"
+                            />
+                          )}
+                        </div>
+                      ))}
+                      <Button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-[0_0_20px_rgba(22,163,74,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98]"
                       >
-                        {selectedFile ? (
-                          <div className="space-y-2">
-                            <FileImage className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-                            <p className="text-sm font-medium truncate max-w-xs mx-auto text-gray-300">{selectedFile.name}</p>
-                            <p className="text-xs text-gray-500">Click to change file</p>
+                        {loading ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span>Uploading...</span>
                           </div>
                         ) : (
-                          <>
-                            <Upload className="w-8 h-8 text-gray-600 group-hover:text-emerald-400 transition-colors mx-auto mb-2" />
-                            <p className="text-xs text-gray-500 group-hover:text-gray-400">Drop your image here or click to browse</p>
-                          </>
+                          'Submit Round Work'
                         )}
-                        <input
-                          type="file"
-                          id="file"
-                          name="file"
-                          ref={fileInputRef}
-                          className="hidden"
-                          accept="image/*"
-                          onChange={handleFileChange}
-                          required={!selectedFile}
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      type="submit"
-                      disabled={submitting || !selectedFile || !isSubmissionEnabled}
-                      className={`w-full h-12 text-lg font-headline font-bold transition-all duration-300 ${isSubmissionEnabled ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-[0_0_20px_rgba(16,185,129,0.2)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-white/5'}`}
-                    >
-                      {submitting ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Submitting...
-                        </div>
-                      ) : (
-                        isSubmissionEnabled ? "Submit Entry" : "Locked Until Final 30 Mins"
-                      )}
-                    </Button>
-                  </form>
-                )}
+                      </Button>
+                    </form>
+                  )}
+                </div>
               </CardContent>
             </MagicCard>
           </div>
