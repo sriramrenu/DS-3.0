@@ -22,8 +22,10 @@ app.get('/api/health', (req: Request, res: Response) => {
     res.json({ status: 'ok', message: 'DataSprint Backend is running' });
 });
 
-// Start server if not running in serverless environment (e.g. Vercel)
-if (require.main === module) {
+// Start server if not running in Vercel
+const isVercel = process.env.VERCEL === '1';
+
+if (!isVercel && require.main === module) {
     app.listen(PORT, () => {
         console.log(`Backend server running on http://localhost:${PORT}`);
     });
