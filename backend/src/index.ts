@@ -23,9 +23,7 @@ app.get('/api/health', (req: Request, res: Response) => {
 });
 
 // Start server if not running in Vercel
-const isVercel = process.env.VERCEL === '1';
-
-if (!isVercel && require.main === module) {
+if (process.env.VERCEL !== '1' && require.main === module) {
     app.listen(PORT, () => {
         console.log(`Backend server running on http://localhost:${PORT}`);
     });
