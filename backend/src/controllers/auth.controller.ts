@@ -11,16 +11,25 @@ export const login = async (req: Request, res: Response) => {
     const { username, password } = req.body;
     console.log(`LOGIN ATTEMPT: User=${username}`);
 
+    let user;
     try {
-        const user = await prisma.user.findUnique({
+        user = await prisma.user.findUnique({
             where: { username },
             include: { team: true },
         });
+    } catch (dbError) {
+        console.error('DATABASE ERROR during login:', dbError);
+        return res.status(500).json({
+            error: 'DB_CONNECTION_ERROR',
+            details: (dbError as Error).message
+        });
+    }
 
-        if (!user || user.password !== password) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
+    if (!user || user.password !== password) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
+    try {
         // Generate Token
         const token = jwt.sign(
             { userId: user.id, username: user.username, role: user.role, teamId: user.teamId, group: user.team?.group },
@@ -38,8 +47,11 @@ export const login = async (req: Request, res: Response) => {
                 group: user.team?.group,
             },
         });
-    } catch (error) {
-        console.error('LOGIN ERROR:', error);
-        res.status(500).json({ error: 'Login failed', details: (error as Error).message });
+    } catch (tokenError) {
+        console.error('TOKEN ERROR during login:', tokenError);
+        res.status(500).json({
+            error: 'TOKEN_GENERATION_ERROR',
+            details: (tokenError as Error).message
+        });
     }
 };
