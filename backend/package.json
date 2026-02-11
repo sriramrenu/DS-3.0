@@ -4,7 +4,7 @@
     "private": true,
     "scripts": {
         "dev": "ts-node src/index.ts",
-        "build": "tsc",
+        "build": "npx prisma generate && tsc",
         "start": "node dist/src/index.js"
     },
     "dependencies": {
