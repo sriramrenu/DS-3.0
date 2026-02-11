@@ -2,11 +2,14 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 const jwt = require('jsonwebtoken');
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+    log: ['query', 'info', 'warn', 'error'],
+});
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey123';
 
 export const login = async (req: Request, res: Response) => {
     const { username, password } = req.body;
+    console.log(`LOGIN ATTEMPT: User=${username}`);
 
     try {
         const user = await prisma.user.findUnique({
