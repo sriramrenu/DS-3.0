@@ -13,15 +13,21 @@ export const login = async (req: Request, res: Response) => {
 
     let user;
     try {
+        console.log("Checking DB Connection...");
         user = await prisma.user.findUnique({
             where: { username },
             include: { team: true },
         });
     } catch (dbError) {
-        console.error('DATABASE ERROR during login:', dbError);
+        const errorMsg = (dbError as Error).message;
+        console.error('DATABASE ERROR DETAILS:', {
+            url: process.env.DATABASE_URL?.split('@')[1], // Log hostname only for safety
+            error: errorMsg,
+            stack: (dbError as Error).stack
+        });
         return res.status(500).json({
             error: 'DB_CONNECTION_ERROR',
-            details: (dbError as Error).message
+            details: errorMsg
         });
     }
 
